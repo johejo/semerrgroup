@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// semerrgroup is errgroup with the limitation of the number of concurrent executions by the semaphore.
+// Package semerrgroup is errgroup wrapper with the limitation of the number of concurrent executions by the semaphore.
 //
 // Most was stolen from errgroup.
 //

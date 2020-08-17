@@ -5,7 +5,7 @@
 [![codecov](https://codecov.io/gh/johejo/semerrgroup/branch/main/graph/badge.svg)](https://codecov.io/gh/johejo/semerrgroup)
 [![Go Report Card](https://goreportcard.com/badge/github.com/johejo/semerrgroup)](https://goreportcard.com/report/github.com/johejo/semerrgroup)
 
-semerrgroup is errgroup wrapper with the limitation of the number of concurrent executions by the semaphore.
+Package semerrgroup is errgroup wrapper with the limitation of the number of concurrent executions by the semaphore.
 
 Most was stolen from errgroup.
 
