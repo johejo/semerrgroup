@@ -9,101 +9,15 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
-	"os"
 	"testing"
 	"time"
 
-	errgroup "github.com/johejo/semerrgroup"
+	"github.com/johejo/semerrgroup"
 )
-
-var (
-	Web   = fakeSearch("web")
-	Image = fakeSearch("image")
-	Video = fakeSearch("video")
-)
-
-type Result string
-type Search func(ctx context.Context, query string) (Result, error)
-
-func fakeSearch(kind string) Search {
-	return func(_ context.Context, query string) (Result, error) {
-		return Result(fmt.Sprintf("%s result for %q", kind, query)), nil
-	}
-}
-
-// JustErrors illustrates the use of a Group in place of a sync.WaitGroup to
-// simplify goroutine counting and error handling. This example is derived from
-// the sync.WaitGroup example at https://golang.org/pkg/sync/#example_WaitGroup.
-func ExampleGroup_justErrors() {
-	g := new(errgroup.Group)
-	var urls = []string{
-		"http://www.golang.org/",
-		"http://www.google.com/",
-		"http://www.somestupidname.com/",
-	}
-	for _, url := range urls {
-		// Launch a goroutine to fetch the URL.
-		url := url // https://golang.org/doc/faq#closures_and_goroutines
-		g.Go(func() error {
-			// Fetch the URL.
-			resp, err := http.Get(url)
-			if err == nil {
-				resp.Body.Close()
-			}
-			return err
-		})
-	}
-	// Wait for all HTTP fetches to complete.
-	if err := g.Wait(); err == nil {
-		fmt.Println("Successfully fetched all URLs.")
-	}
-}
-
-// Parallel illustrates the use of a Group for synchronizing a simple parallel
-// task: the "Google Search 2.0" function from
-// https://talks.golang.org/2012/concurrency.slide#46, augmented with a Context
-// and error-handling.
-func ExampleGroup_parallel() {
-	Google := func(ctx context.Context, query string) ([]Result, error) {
-		g, ctx := errgroup.WithContext(ctx)
-
-		searches := []Search{Web, Image, Video}
-		results := make([]Result, len(searches))
-		for i, search := range searches {
-			i, search := i, search // https://golang.org/doc/faq#closures_and_goroutines
-			g.Go(func() error {
-				result, err := search(ctx, query)
-				if err == nil {
-					results[i] = result
-				}
-				return err
-			})
-		}
-		if err := g.Wait(); err != nil {
-			return nil, err
-		}
-		return results, nil
-	}
-
-	results, err := Google(context.Background(), "golang")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return
-	}
-	for _, result := range results {
-		fmt.Println(result)
-	}
-
-	// Output:
-	// web result for "golang"
-	// image result for "golang"
-	// video result for "golang"
-}
 
 func TestZeroGroup(t *testing.T) {
-	err1 := errors.New("errgroup_test: 1")
-	err2 := errors.New("errgroup_test: 2")
+	err1 := errors.New("semerrgroup_test: 1")
+	err2 := errors.New("semerrgroup_test: 2")
 
 	cases := []struct {
 		errs []error
@@ -116,12 +30,13 @@ func TestZeroGroup(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		g := new(errgroup.Group)
+		g := new(semerrgroup.LimitedGroup)
 
 		var firstErr error
 		for i, err := range tc.errs {
+			ctx := context.Background()
 			err := err
-			g.Go(func() error { return err })
+			g.Go(ctx, func() error { return err })
 
 			if firstErr == nil && err != nil {
 				firstErr = err
@@ -150,11 +65,11 @@ func TestWithContext(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		g, ctx := errgroup.WithContext(context.Background())
+		g, ctx := semerrgroup.WithContext(context.Background(), 100)
 
 		for _, err := range tc.errs {
 			err := err
-			g.Go(func() error { return err })
+			g.Go(ctx, func() error { return err })
 		}
 
 		if err := g.Wait(); err != tc.want {
@@ -178,12 +93,12 @@ func TestWithContext(t *testing.T) {
 }
 
 func ExampleLimitedGroup() {
-	g, ctx := errgroup.WithSemaphore(context.Background(), 2) // only two task run in parallel.
+	g, ctx := semerrgroup.WithContext(context.Background(), 2) // only two tasks run in parallel.
 
 	begin := time.Now()
-	// run 3 tasks
+	// run three tasks
 	for i := 0; i < 3; i++ {
-		g.GoWithAcquire(ctx, func() error {
+		g.Go(ctx, func() error {
 			time.Sleep(1 * time.Second)
 			return nil
 		})
@@ -199,4 +114,33 @@ func ExampleLimitedGroup() {
 
 	// Output:
 	// 2s
+}
+
+func ExampleLimitedGroup_cancel_acquisition() {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	g, ctx := semerrgroup.WithContext(ctx, 1)
+	g.Go(ctx, func() error {
+		fmt.Println("task1 started")
+		<-ctx.Done()
+		fmt.Println("task1 completed")
+		return nil
+	})
+	g.Go(ctx, func() error {
+		// will not start
+		fmt.Println("task2 started")
+		<-ctx.Done()
+		fmt.Println("task2 completed")
+		return nil
+	})
+	err := g.Wait()
+	if !errors.Is(err, context.DeadlineExceeded) {
+		log.Fatalf("should return context.DeadlintExceeded, but got %v", err)
+	}
+	fmt.Println("finish")
+
+	// Output:
+	// task1 started
+	// task1 completed
+	// finish
 }
