@@ -124,7 +124,7 @@ func ExampleLimitedGroup_cancel_acquisition() {
 		fmt.Println("task1 started")
 		<-ctx.Done()
 		fmt.Println("task1 completed")
-		return nil
+		return ctx.Err()
 	})
 	g.Go(ctx, func() error {
 		// will not start
