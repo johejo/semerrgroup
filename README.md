@@ -1,5 +1,7 @@
 # semerrgroup
 
+*DEPRECATED*: Use https://pkg.go.dev/golang.org/x/sync/errgroup#Group.SetLimit
+
 [![ci](https://github.com/johejo/semerrgroup/workflows/ci/badge.svg?branch=main)](https://github.com/johejo/semerrgroup/actions?query=workflow%3Aci)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/johejo/semerrgroup)](https://pkg.go.dev/github.com/johejo/semerrgroup)
 [![codecov](https://codecov.io/gh/johejo/semerrgroup/branch/main/graph/badge.svg)](https://codecov.io/gh/johejo/semerrgroup)
